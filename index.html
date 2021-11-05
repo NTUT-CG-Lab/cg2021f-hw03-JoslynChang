@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<title>three.js webgl - loaders - MMD loader</title>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+	<link type="text/css" rel="stylesheet" href="main.css">
+	<style>
+		body {
+			background-color: #fff;
+			color: #444;
+		}
+
+		a {
+			color: #08f;
+		}
+	</style>
+</head>
+
+<body>
+	<div id="info"></div>
+
+	<script src="js/libs/ammo.wasm.js"></script>
+	<script src="scoreoutputer.min.js"></script>
+	<script>
+		// 建構子 ScoreOutputer 接受一個字串，該字串為 csv 的檔案名稱
+		// 以下面範例，檔名就為 "109598105(總分: 6).csv"
+		var so = new ScoreOutputer("110598001");
+		so.installCSS(function () {
+			// 安裝 bootstrap 的 css，如果在 html 上方引用 bootstrap 5.1.1 的話就不用使用 installCSS ，注意一定要 bootstrap css 5.1.1 版
+			// installCSS 接收一個 callback 當作參數，作為成功安裝 bootstrap css 的回呼函式
+
+			//加入項目，分數，完成狀況
+			//第一個參數為 項目名稱
+			//第2個參數為 項目分數
+			//第3個參數為 完成狀況，有完成 true/未完成 false
+			//有幾個項目就呼叫幾個 addChild
+			//addChild 要比 renderModal 先呼叫
+			so.addChild("繪製出 5 個畫面", 1, true);
+			so.addChild("回答問題", 1, true);
+			so.addChild("可按鍵選擇上 / 下一隻角色", 1, true);
+			so.addChild("讀取作業 2 儲存的座標點在眼睛上繪製出分割線", 1, true);
+			so.addChild("可選擇當下控制哪個虹膜", 1, true);
+			so.addChild("按滑鼠左鍵控制虹膜移動，右鍵停止", 2, true);
+			so.addChild("複製參數至對應目標參數", 2, true);
+			so.addChild("可儲存虹膜轉動角度", 1, true);
+
+			//產生自評表，參數如下所示
+			so.renderModal(
+				//1. 自評表插入位置 (預設 document.body)
+				document.body,
+				//2. 自評表背景 (預設紅色)
+				'rgba(100,45,58,1)',
+				//3. 自評表文字顏色 (預設白色)
+				'white',
+				//4. 自評表文字大小 (預設 14pt)
+				'15pt',
+				//5. 自評表 checkbox 文字大小 (預設多少忘了)
+				'15px',
+				//6. 自評表標題 (預設 "自我評分表")
+				dialogTitle = "自我評分表"
+			);
+
+			//設定下載按鈕 <-- 一定要呼叫這個函數，不然沒有下載功能
+			so.installDownloadBtn();
+
+			//產生 "開啟自評表按鈕"
+			so.renderBtn(
+				//自評表按鈕插入位置
+				document.querySelector("#info"),
+				//自評表按鈕文字
+				"開啟自評表"
+			);
+		});
+	</script>
+	<script type="module">
+
+		import * as THREE from './build/three.module.js';
+		import { GUI } from './jsm/libs/dat.gui.module.js';
+		import { OrbitControls } from './jsm/controls/OrbitControls.js';
+		import { OutlineEffect } from './jsm/effects/OutlineEffect.js';
+		import { MMDLoader } from './jsm/loaders/MMDLoader.js';
+		import { MMDAnimationHelper } from './jsm/animation/MMDAnimationHelper.js';
+
+		let scene, renderer, effect;
+		let mesh, helper;
+		let SCREEN_WIDTH = window.innerWidth;
+		let SCREEN_HEIGHT = window.innerHeight;
+		let aspect = SCREEN_WIDTH / SCREEN_HEIGHT;
+		let frustumSize1 = 0.5;
+		let frustumSize = 3.2;
+		let camera1, camera2, camera3, camera4, camera5;
+
+		const modelFiles = [];
+		let modelFile = 0;
+		let modellist = [];
+		function readTextFile(file, callback) {
+			var rawFile = new XMLHttpRequest();
+			rawFile.overrideMimeType("application/json");
+			rawFile.open("GET", file, true);
+			rawFile.onreadystatechange = function() {
+				if (rawFile.readyState === 4 && rawFile.status == "200") {
+					callback(rawFile.responseText);
+				}
+			}
+			rawFile.send(null);
+		}
+		readTextFile("/model_data.json", function(text){
+			let data = JSON.parse(text)["modellist"];
+			for (let d in data) {
+				modellist.push(data[d]);
+				modelFiles.push(data[d]["location"]);
+			}
+		});
+
+		const vpdFiles = [
+			'models/mmd/vpds/01.vpd',
+			'models/mmd/vpds/02.vpd',
+			'models/mmd/vpds/03.vpd',
+			'models/mmd/vpds/04.vpd',
+			'models/mmd/vpds/05.vpd',
+			'models/mmd/vpds/06.vpd',
+			'models/mmd/vpds/07.vpd',
+			'models/mmd/vpds/08.vpd',
+			'models/mmd/vpds/09.vpd',
+			'models/mmd/vpds/10.vpd',
+			'models/mmd/vpds/11.vpd'
+		];
+
+		let group_line;
+		let line_v_l = [];
+		let line_v_r = [];
+		let line_h = [];
+
+		let eye = 0;
+		let rightEye;
+		let leftEye;
+
+		let rotationList = ["RightXNegativeAngle", "LeftXNegativeAngle", "RightXPositiveAngle", "LeftXPositiveAngle", "RightYNegativeAngle", "LeftYNegativeAngle", "RightYPositiveAngle", "LeftYPositiveAngle"];
+
+		let targetRotation = 0;
+		let targetRotationOnPointerDown = 0;
+
+		let pointerX = 0;
+		let pointerY = 0;
+		let pointerXOnPointerDown = 0;
+		let pointerYOnPointerDown = 0;
+
+		let windowHalfX = window.innerWidth / 2;
+		let windowHalfY = window.innerHeight / 2;
+
+		Ammo().then(function (AmmoLib) {
+
+			Ammo = AmmoLib;
+
+			init();
+			animate();
+
+		});
+
+		function init() {
+			const container = document.createElement('div');
+			document.body.appendChild(container);
+			camera1 = new THREE.OrthographicCamera(0.5 * frustumSize1 * aspect / - 2, 0.5 * frustumSize1 * aspect / 2, frustumSize1 / 2, frustumSize1 / - 2, 0.1, 1000);
+			camera2 = new THREE.OrthographicCamera(0.25 * frustumSize * aspect / - 2, 0.25 * frustumSize * aspect / 2, 0.5 * frustumSize / 2, 0.5 * frustumSize / - 2, 0.1, 1000);
+			camera3 = new THREE.OrthographicCamera(0.25 * frustumSize * aspect / - 2, 0.25 * frustumSize * aspect / 2, 0.5 * frustumSize / 2, 0.5 * frustumSize / - 2, 0.1, 1000);
+			camera4 = new THREE.OrthographicCamera(0.25 * frustumSize * aspect / - 2, 0.25 * frustumSize * aspect / 2, 0.5 * frustumSize / 2, 0.5 * frustumSize / - 2, 0.1, 1000);
+			camera5 = new THREE.OrthographicCamera(0.25 * frustumSize * aspect / - 2, 0.25 * frustumSize * aspect / 2, 0.5 * frustumSize / 2, 0.5 * frustumSize / - 2, 0.1, 1000);
+			camera1.position.z = 30;
+			camera2.position.z = 30;
+			camera3.position.z = 30;
+			camera4.position.z = 30;
+			camera5.position.z = 30;
+
+			// scene
+
+			scene = new THREE.Scene();
+			const ambient = new THREE.AmbientLight(0x666666);
+			scene.add(ambient);
+
+			const directionalLight = new THREE.DirectionalLight(0x887766);
+			directionalLight.position.set(- 1, 1, 1).normalize();
+			scene.add(directionalLight);
+
+			//
+
+			renderer = new THREE.WebGLRenderer({ antialias: true });
+			renderer.setPixelRatio(window.devicePixelRatio);
+			renderer.setSize(window.innerWidth, window.innerHeight);
+			container.appendChild(renderer.domElement);
+			renderer.autoClear = false;
+			effect = new OutlineEffect(renderer);
+
+			//
+
+			UpdateMMD();
+
+			for(let m in modellist){
+				for(let key in rotationList){
+					if(!modellist[m][rotationList[key]]) modellist[m][rotationList[key]] = 0;
+					else modellist[m][rotationList[key]] = modellist[m][rotationList[key]] * Math.PI / 180;
+				}
+			}
+
+			//
+
+			window.addEventListener('resize', onWindowResize);
+			document.addEventListener('keydown', onKeyDown, false);
+			window.addEventListener( 'mousedown', onMouseDown, false );
+			window.oncontextmenu = function (e) { e.preventDefault(); }
+			//鏡頭控制
+
+		}
+
+		function UpdateMMD(){
+			
+			function onProgress(xhr) {
+
+				if (xhr.lengthComputable) {
+
+					const percentComplete = xhr.loaded / xhr.total * 100;
+					console.log(Math.round(percentComplete, 2) + '% downloaded');
+
+				}
+
+			}
+
+			helper = new MMDAnimationHelper();
+
+			const loader = new MMDLoader();
+
+			loader.load(modelFiles[modelFile], function (object) {
+
+				mesh = object;
+				mesh.position.y = - 10;
+
+				eye = 0;
+				leftEye = mesh.skeleton.bones.find(x => x.name === "左目");
+				rightEye = mesh.skeleton.bones.find(x => x.name === "右目");
+				
+				scene.add(mesh);
+				
+				UpdateLines();
+				InitEye();
+
+			}, onProgress, null);
+
+		}
+
+		function UpdateLines() {
+			const m = modellist.find(function(model){
+				return model.location === modelFiles[modelFile];
+			});
+
+			line_v_l[0] = m["line_locationx_4"];
+			line_v_l[8] = m["line_locationx_2"];
+			let delta = (line_v_l[8] - line_v_l[0]) / 8;
+			for(let i = 1; i < 8; i++){
+				line_v_l[i] = line_v_l[i-1] + delta;
+			}
+
+			for(let i = 0; i < 9; i++){
+				line_v_r[i] = -line_v_l[i];
+			}
+
+			line_h[0] = m["line_locationy_1"];
+			line_h[4] = m["line_locationy_3"];
+			delta = (line_h[4] - line_h[0]) / 4;
+			for(let i = 1; i < 4; i++){
+				line_h[i] = line_h[i-1] + delta;
+			}
+
+			UpdateCamera();
+			DrawLines();
+		}
+
+		function DrawLines() {
+			scene.remove(group_line);
+			if(eye % 2 == 0) camera1.position.x = line_v_r[4];
+			else camera1.position.x = line_v_l[4];
+
+			group_line = new THREE.Group();
+			for(let i in line_h){
+				let points = [];
+				if(eye % 2 == 0) points = [new THREE.Vector3(line_v_r[0] + 0.1, line_h[i], 20), new THREE.Vector3(line_v_r[8] - 0.1, line_h[i], 20)];
+				else points = [new THREE.Vector3(line_v_l[0] - 0.1, line_h[i], 20), new THREE.Vector3(line_v_l[8] + 0.1, line_h[i], 20)];
+				const line = new THREE.Line(
+					new THREE.BufferGeometry().setFromPoints(points),
+					new THREE.LineBasicMaterial({color: 0xD9CD90})
+				);
+				group_line.add(line);
+			}
+			for(let i = 0; i < 9; i++){
+				let points = [];
+				if(eye % 2 == 0) points = [new THREE.Vector3(line_v_r[i], line_h[0] + 0.1, 20), new THREE.Vector3(line_v_r[i], line_h[4] - 0.1, 20)];
+				else points = [new THREE.Vector3(line_v_l[i], line_h[0] + 0.1, 20), new THREE.Vector3(line_v_l[i], line_h[4] - 0.1, 20)];
+				const line = new THREE.Line(
+					new THREE.BufferGeometry().setFromPoints(points),
+					new THREE.LineBasicMaterial({color: 0xA5DEE4})
+				);
+				group_line.add(line);
+			}
+			scene.add(group_line);
+
+		}
+
+		function UpdateCamera() {
+			camera1.position.x = line_v_r[4];
+			camera1.position.y = line_h[2];
+			camera2.position.y = line_h[2];
+			camera3.position.y = line_h[2];
+			camera4.position.y = line_h[2];
+			camera5.position.y = line_h[2];
+		}
+
+		function onWindowResize() {
+
+			SCREEN_WIDTH = window.innerWidth;
+			SCREEN_HEIGHT = window.innerHeight;
+			aspect = SCREEN_WIDTH / SCREEN_HEIGHT;
+
+			effect.setSize(SCREEN_WIDTH, SCREEN_HEIGHT);
+
+			camera1.left = 0.5 * frustumSize1 * aspect / - 2;
+			camera1.right = 0.5 * frustumSize1 * aspect / 2;
+			camera1.top = frustumSize1 / 2;
+			camera1.bottom = - frustumSize1 / 2;
+			camera1.updateProjectionMatrix();
+
+			camera2.left = 0.25 * frustumSize * aspect / - 2;
+			camera2.right = 0.25 * frustumSize * aspect / 2;
+			camera2.top = 0.5 * frustumSize / 2;
+			camera2.bottom = - 0.5 * frustumSize / 2;
+			camera2.updateProjectionMatrix();
+
+			camera3.left = 0.25 * frustumSize * aspect / - 2;
+			camera3.right = 0.25 * frustumSize * aspect / 2;
+			camera3.top = 0.5 * frustumSize / 2;
+			camera3.bottom = - 0.5 * frustumSize / 2;
+			camera3.updateProjectionMatrix();
+
+			camera4.left = 0.25 * frustumSize * aspect / - 2;
+			camera4.right = 0.25 * frustumSize * aspect / 2;
+			camera4.top = 0.5 * frustumSize / 2;
+			camera4.bottom = - 0.5 * frustumSize / 2;
+			camera4.updateProjectionMatrix();
+
+			camera5.left = 0.25 * frustumSize * aspect / - 2;
+			camera5.right = 0.25 * frustumSize * aspect / 2;
+			camera5.top = 0.5 * frustumSize / 2;
+			camera5.bottom = - 0.5 * frustumSize / 2;
+			camera5.updateProjectionMatrix();
+		}
+		
+		function onKeyDown(event) {
+			var keyCode = event.which;
+			
+			document.removeEventListener( 'pointermove', onPointerMove );
+			RecordEye();
+
+			if (keyCode == 65) {
+				if (modelFile == 0) modelFile = modelFiles.length-1;
+				else modelFile -= 1;
+
+				scene.remove(mesh);
+				UpdateMMD();
+			}
+			else if (keyCode == 68) {
+				if (modelFile == modelFiles.length-1) modelFile = 0;
+				else modelFile += 1;
+				
+				scene.remove(mesh);
+				UpdateMMD();
+			}
+			else if (keyCode == 49 || keyCode == 97) {
+				if(eye == 0) eye = 7;
+				else eye--;
+				
+				DrawLines();
+			}
+			else if (keyCode == 50 || keyCode == 98) {
+				if(eye == 7) eye = 0;
+				else eye++;
+
+				DrawLines();
+			}
+			else if (keyCode == 81) {
+				//copy
+				switch(eye){
+					case 0:
+						modellist[modelFile][rotationList[1]] = rightEye.rotation.x;
+						eye = 1;
+						break;
+					case 2:
+						modellist[modelFile][rotationList[3]] = rightEye.rotation.x;
+						eye = 3;
+						break;
+					case 4:
+						modellist[modelFile][rotationList[7]] = -rightEye.rotation.y;
+						eye = 7;
+						break;
+					case 6:
+						modellist[modelFile][rotationList[5]] = -rightEye.rotation.y;
+						eye = 5;
+						break;
+				}
+
+				DrawLines();
+			}
+			else if (keyCode == 83) {
+				//save
+				
+				for(let m in modellist){
+					for(let key in rotationList){
+						modellist[m][rotationList[key]] = modellist[m][rotationList[key]] / Math.PI * 180;
+					}
+				}
+
+				var element = document.createElement('a');
+            	element.setAttribute('href','data:text/plain;charset=utf-8, ' + encodeURIComponent(JSON.stringify({modellist: modellist}, null, '\t')));
+				element.setAttribute('download', 'model_data.json');
+				document.body.appendChild(element);
+				element.click();
+				document.body.removeChild(element);
+
+				
+				for(let m in modellist){
+					for(let key in rotationList){
+						modellist[m][rotationList[key]] = modellist[m][rotationList[key]] * Math.PI / 180;
+					}
+				}
+
+			}
+			
+			UpdateEye();
+		}
+
+		function InitEye() {
+			
+			rightEye.rotation.x = modellist[modelFile][rotationList[0]];
+			rightEye.rotation.y = 0;
+			targetRotation = rightEye.rotation.x;
+			leftEye.rotation.x = modellist[modelFile][rotationList[1]];
+			leftEye.rotation.y = 0;
+			targetRotation = leftEye.rotation.x;
+
+		}
+		
+		function RecordEye() {
+
+			switch(eye){
+				case 0: case 2:
+					modellist[modelFile][rotationList[eye]] = rightEye.rotation.x;
+					break;
+				case 1: case 3:
+					modellist[modelFile][rotationList[eye]] = leftEye.rotation.x;
+					break;
+				case 4: case 6:
+					modellist[modelFile][rotationList[eye]] = rightEye.rotation.y;
+					break;
+				case 5: case 7:
+					modellist[modelFile][rotationList[eye]] = leftEye.rotation.y;
+					break;
+			}
+
+		}
+
+		function UpdateEye() {
+
+			switch(eye){
+				case 0: case 2:
+					rightEye.rotation.x = modellist[modelFile][rotationList[eye]];
+					rightEye.rotation.y = 0;
+					targetRotation = rightEye.rotation.x;
+					break;
+				case 1: case 3:
+					leftEye.rotation.x = modellist[modelFile][rotationList[eye]];
+					leftEye.rotation.y = 0;
+					targetRotation = leftEye.rotation.x;
+					break;
+				case 4: case 6:
+					rightEye.rotation.x = 0;
+					rightEye.rotation.y = modellist[modelFile][rotationList[eye]];
+					targetRotation = rightEye.rotation.y;
+					break;
+				case 5: case 7:
+					leftEye.rotation.x = 0;
+					leftEye.rotation.y = modellist[modelFile][rotationList[eye]];
+					targetRotation = leftEye.rotation.y;
+					break;
+			}
+
+		}
+		
+		function onMouseDown(event) {
+			
+			if ( event.isPrimary === false ) return;
+
+			if(event.button == 0){
+
+				pointerXOnPointerDown = event.clientX - windowHalfX;
+				pointerYOnPointerDown = event.clientY - windowHalfY
+				
+				switch(eye){
+					case 0: case 2:
+						targetRotationOnPointerDown = rightEye.rotation.x;
+						break;
+					case 1: case 3:
+						targetRotationOnPointerDown = leftEye.rotation.x;
+						break;
+					case 4: case 6:
+						targetRotationOnPointerDown = rightEye.rotation.y;
+						break;
+					case 5: case 7:
+						targetRotationOnPointerDown = leftEye.rotation.y;
+						break;
+				}
+
+				document.addEventListener( 'pointermove', onPointerMove );
+			}
+			else if(event.button == 2){
+				document.removeEventListener( 'pointermove', onPointerMove );
+			}
+
+		}
+
+		function onPointerMove( event ) {
+
+			if ( event.isPrimary === false ) return;
+
+			pointerX = event.clientX - windowHalfX;
+			pointerY = event.clientY - windowHalfY;
+
+			if(eye < 4) targetRotation = targetRotationOnPointerDown + ( pointerY - pointerYOnPointerDown ) * 0.002;
+			else targetRotation = targetRotationOnPointerDown + ( pointerX - pointerXOnPointerDown ) * 0.002;
+
+		}
+
+		function animate() {
+
+			requestAnimationFrame(animate);
+
+			switch(eye){
+				case 0: case 2:
+					rightEye.rotation.x += ( targetRotation - rightEye.rotation.x ) * 0.1;
+					break;
+				case 1: case 3:
+					leftEye.rotation.x += ( targetRotation - leftEye.rotation.x ) * 0.1;
+					break;
+				case 4: case 6:
+					rightEye.rotation.y += ( targetRotation - rightEye.rotation.y ) * 0.1;
+					break;
+				case 5: case 7:
+					leftEye.rotation.y += ( targetRotation - leftEye.rotation.y ) * 0.1;
+					break;
+			}
+
+			render();
+
+		}
+
+		function render() {
+			effect.setViewport(0, 0, SCREEN_WIDTH / 2, SCREEN_HEIGHT);
+			effect.render(scene, camera1);
+
+			effect.setViewport(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, SCREEN_WIDTH / 4, SCREEN_HEIGHT / 2);
+			effect.render(scene, camera2);
+
+			effect.setViewport(SCREEN_WIDTH / 2 + SCREEN_WIDTH / 4, SCREEN_HEIGHT / 2, SCREEN_WIDTH / 4, SCREEN_HEIGHT / 2);
+			effect.render(scene, camera3);
+
+			effect.setViewport(SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 4, SCREEN_HEIGHT / 2);
+			effect.render(scene, camera4);
+
+			effect.setViewport(SCREEN_WIDTH / 2 + SCREEN_WIDTH / 4, 0, SCREEN_WIDTH / 4, SCREEN_HEIGHT / 2);
+			effect.render(scene, camera5);
+		}
+	</script>
+
+</body>
+
+</html>
