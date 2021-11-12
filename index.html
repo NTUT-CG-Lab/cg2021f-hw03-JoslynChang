@@ -77,11 +77,11 @@
 	<script type="module">
 
 		import * as THREE from './build/three.module.js';
-		import { GUI } from './jsm/libs/dat.gui.module.js';
-		import { OrbitControls } from './jsm/controls/OrbitControls.js';
-		import { OutlineEffect } from './jsm/effects/OutlineEffect.js';
-		import { MMDLoader } from './jsm/loaders/MMDLoader.js';
-		import { MMDAnimationHelper } from './jsm/animation/MMDAnimationHelper.js';
+		import { GUI } from './jsm/jsm/libs/dat.gui.module.js';
+		import { OrbitControls } from './jsm/jsm/controls/OrbitControls.js';
+		import { OutlineEffect } from './jsm/jsm/effects/OutlineEffect.js';
+		import { MMDLoader } from './jsm/jsm/loaders/MMDLoader.js';
+		import { MMDAnimationHelper } from './jsm/jsm/animation/MMDAnimationHelper.js';
 
 		let scene, renderer, effect;
 		let mesh, helper;
@@ -194,14 +194,13 @@
 
 			//
 
-			UpdateMMD();
-
 			for(let m in modellist){
 				for(let key in rotationList){
 					if(!modellist[m][rotationList[key]]) modellist[m][rotationList[key]] = 0;
-					else modellist[m][rotationList[key]] = modellist[m][rotationList[key]] * Math.PI / 180;
+					else modellist[m][rotationList[key]] = -THREE.MathUtils.degToRad(modellist[m][rotationList[key]]);
 				}
 			}
+			UpdateMMD();
 
 			//
 
@@ -413,7 +412,7 @@
 				
 				for(let m in modellist){
 					for(let key in rotationList){
-						modellist[m][rotationList[key]] = modellist[m][rotationList[key]] / Math.PI * 180;
+						modellist[m][rotationList[key]] = -THREE.MathUtils.radToDeg(modellist[m][rotationList[key]]);
 					}
 				}
 
@@ -427,7 +426,7 @@
 				
 				for(let m in modellist){
 					for(let key in rotationList){
-						modellist[m][rotationList[key]] = modellist[m][rotationList[key]] * Math.PI / 180;
+						modellist[m][rotationList[key]] = -THREE.MathUtils.degToRad(modellist[m][rotationList[key]]);
 					}
 				}
 
@@ -555,6 +554,7 @@
 					leftEye.rotation.y += ( targetRotation - leftEye.rotation.y ) * 0.1;
 					break;
 			}
+			RecordEye();
 
 			render();
 

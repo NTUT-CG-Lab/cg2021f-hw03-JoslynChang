@@ -10,14 +10,14 @@
 			"line_locationy_3": 8.009887416347283,
 			"line_locationx_4": 0.2538145756956892,
 			"line_locationy_4": 8.233191853090226,
-			"RightXNegativeAngle": 8.708955293210597,
-			"LeftXNegativeAngle": 8.74725186694843,
-			"RightXPositiveAngle": -11.34456434378113,
-			"LeftXPositiveAngle": -11.34456434378113,
-			"RightYNegativeAngle": 8.021409131625798,
-			"LeftYNegativeAngle": 12.605062709842336,
-			"RightYPositiveAngle": -12.605062709842336,
-			"LeftYPositiveAngle": -8.021409131625798
+			"RightXNegativeAngle": -8.708955293210597,
+			"LeftXNegativeAngle": -8.74725186694843,
+			"RightXPositiveAngle": 11.34456434378113,
+			"LeftXPositiveAngle": 11.34456434378113,
+			"RightYNegativeAngle": -8.021409131625798,
+			"LeftYNegativeAngle": -12.605062709842336,
+			"RightYPositiveAngle": 12.605062709842336,
+			"LeftYPositiveAngle": 8.021409131625798
 		},
 		{
 			"location": "models/mmd/『天宮こころ(Kokoro Amamiya)』/『天宮こころ(Kokoro Amamiya)』.pmx",
@@ -29,14 +29,14 @@
 			"line_locationy_3": 5.340784766264098,
 			"line_locationx_4": 0.29572831960931834,
 			"line_locationy_4": 5.466129092802054,
-			"RightXNegativeAngle": 17.035958559778003,
-			"LeftXNegativeAngle": 17.035958559778003,
-			"RightXPositiveAngle": -14.362137845405998,
-			"LeftXPositiveAngle": -14.362137845405998,
-			"RightYNegativeAngle": 10.733823673238833,
-			"LeftYNegativeAngle": 16.42479019444464,
-			"RightYPositiveAngle": -16.42479019444464,
-			"LeftYPositiveAngle": -10.733823673238833
+			"RightXNegativeAngle": -17.035958559778003,
+			"LeftXNegativeAngle": -17.035958559778003,
+			"RightXPositiveAngle": 14.362137845405998,
+			"LeftXPositiveAngle": 14.362137845405998,
+			"RightYNegativeAngle": -10.733823673238833,
+			"LeftYNegativeAngle": -16.42479019444464,
+			"RightYPositiveAngle": 16.42479019444464,
+			"LeftYPositiveAngle": 10.733823673238833
 		},
 		{
 			"location": "models/mmd/るいのれ式物述有栖_配布用フォルダ/物述有栖.pmx",
@@ -48,14 +48,14 @@
 			"line_locationy_3": 4.318378046097398,
 			"line_locationx_4": 0.3076349620258564,
 			"line_locationy_4": 4.49188472116371,
-			"RightXNegativeAngle": 14.813036591789137,
-			"LeftXNegativeAngle": 14.813036591789137,
-			"RightXPositiveAngle": -16.148664101287082,
-			"LeftXPositiveAngle": -16.148664101287082,
-			"RightYNegativeAngle": 10.466883625961046,
-			"LeftYNegativeAngle": 21.045942776708348,
-			"RightYPositiveAngle": -21.045942776708348,
-			"LeftYPositiveAngle": -10.466883625961046
+			"RightXNegativeAngle": -14.813036591789137,
+			"LeftXNegativeAngle": -14.813036591789137,
+			"RightXPositiveAngle": 16.148664101287082,
+			"LeftXPositiveAngle": 16.148664101287082,
+			"RightYNegativeAngle": -10.466883625961046,
+			"LeftYNegativeAngle": -21.045942776708348,
+			"RightYPositiveAngle": 21.045942776708348,
+			"LeftYPositiveAngle": 10.466883625961046
 		}
 	]
 }
